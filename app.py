@@ -7,53 +7,54 @@ import os
 st.set_page_config(page_title="Pipeline ETL Previdência", layout="wide")
 
 st.title("🏛️ Extrator de Tabelas da Previdência Social")
-st.markdown("Faça o upload do relatório em PDF para extrair, estruturar e baixar os dados em formato JSON.")
+st.markdown("Faça o upload do relatório em PDF para extrair, estruturar e descarregar os dados em formato JSON.")
 
-arquivo_pdf = st.file_uploader("Selecione o arquivo PDF governamental", type=["pdf"])
+arquivo_pdf = st.file_uploader("Selecione o arquivo PDF", type=["pdf"])
 
 if _arquivo_pdf := arquivo_pdf:
-    st.success(f"Arquivo '{_arquivo_pdf.name}' carregado com sucesso!")
+    st.success(f"Ficheiro '{_arquivo_pdf.name}' carregado com sucesso!")
     
-    with st.spinner("Executando pipeline ETL (Extração e Transformação)..."):
+    with st.spinner("A executar pipeline ETL (Extração e Transformação)..."):
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                 tmp.write(_arquivo_pdf.getvalue())
                 caminho_temporario = tmp.name
 
-            # --- EXTRAÇÃO ---
-            lista_tabelas = tabula.read_pdf(caminho_temporario, pages='1', stream=True)
-            df_bruto = lista_tabelas[0]
-            df_bruto = df_bruto.dropna(how='all')
-
-            # --- TRANSFORMAÇÃO ---
-            df_limpo = df_bruto.iloc[3:].copy()
-            df_limpo.columns = [
-                'item', 'nov_23', 'out_24', 'nov_24', 
-                'var_percentual_mes', 'var_percentual_ano', 
-                'acumulado_sujo', 'var_percentual_acumulado'
-            ]
-
-            if 'acumulado_sujo' in df_limpo.columns:
-                df_limpo[['acumulado_2023', 'acumulado_2024']] = df_limpo['acumulado_sujo'].str.split(expand=True)
-                df_limpo = df_limpo.drop(columns=['acumulado_sujo'])
+            # ETAPA DE EXTRAÇÃO ( PARA MÚLTIPLAS PÁGINAS)
+            lista_tabelas = tabula.read_pdf(caminho_temporario, pages='all', stream=True)
             
-            df_limpo = df_limpo.dropna(subset=['item'])
+            tabelas_limpas = []
+            
+            for df_bruto in lista_tabelas:
+                df_limpo = df_bruto.dropna(how='all', axis=0).dropna(how='all', axis=1)
+                
+                if not df_limpo.empty:
+                   df_limpo.columns = [str(col).strip().replace('\r', ' ').replace('\n', ' ') for col in df_limpo.columns]
+                    
+                    tabelas_limpas.append(df_limpo)
+
             os.unlink(caminho_temporario)
 
-            # --- VISUALIZAÇÃO E EXPORTAÇÃO ---
-            st.markdown("### 📊 Tabela Estruturada de Dados Fiscais")
-            st.dataframe(df_limpo, use_container_width=True)
+            # ETAPA DE CONCATENAÇÃO E EXPORTAÇÃO
+            if tabelas_limpas:
+                df_final = pd.concat(tabelas_limpas, ignore_index=True)
+                
+                st.markdown("### 📊 Tabela Extraída")
+                st.dataframe(df_final, use_container_width=True)
 
-            dados_json = df_limpo.to_json(orient="records", force_ascii=False, indent=4)
+                dados_json = df_final.to_json(orient="records", force_ascii=False, indent=4)
 
-            st.markdown("### 📥 Exportar Resultados")
-            st.download_button(
-                label="Clique aqui para baixar a tabela em JSON",
-                data=dados_json,
-                file_name=f"{_arquivo_pdf.name.replace('.pdf', '')}_estruturado.json",
-                mime="application/json",
-                type="primary"
-            )
+                st.markdown("### 📥 Exportar Resultados")
+                st.download_button(
+                    label="Clique aqui para baixar a tabela em JSON",
+                    data=dados_json,
+                    file_name=f"{_arquivo_pdf.name.replace('.pdf', '')}_estruturado.json",
+                    mime="application/json",
+                    type="primary"
+                )
+            else:
+                st.warning("Não foi possível extrair nenhuma tabela válida deste arquivo PDF.")
 
         except Exception as e:
-            st.error(f"Erro ao processar o layout do PDF: {e}")
+            st.error(f"Erro ao processar o arquivo PDF: {e}")
+            st.error(f"Erro ao processar a estrutura do PDF: {e}")
