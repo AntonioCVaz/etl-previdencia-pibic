@@ -15,7 +15,7 @@ arquivo_pdf = st.file_uploader("Selecione o ficheiro PDF governamental", type=["
 if _arquivo_pdf := arquivo_pdf:
     st.success(f"Ficheiro '{_arquivo_pdf.name}' carregado com sucesso!")
     
-    with st.spinner("A executar pipeline ETL..."):
+    with st.spinner("Executando pipeline ETL..."):
         try:
             # PREPARAÇÃO DO ARQUIVO
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
