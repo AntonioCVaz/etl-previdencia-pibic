@@ -3,18 +3,19 @@ import pandas as pd
 import tabula
 import tempfile
 import os
+import json
 
 st.set_page_config(page_title="Pipeline ETL Previdência", layout="wide")
 
 st.title("🏛️ Extrator de Tabelas da Previdência Social")
-st.markdown("Faça o upload do relatório em PDF para extrair, estruturar e baixar os dados em formato JSON.")
+st.markdown("Faça o upload do relatório em PDF para extrair, estruturar e descarregar os dados em formato JSON.")
 
-arquivo_pdf = st.file_uploader("Selecione o arquivo PDF governamental", type=["pdf"])
+arquivo_pdf = st.file_uploader("Selecione o ficheiro PDF governamental", type=["pdf"])
 
 if _arquivo_pdf := arquivo_pdf:
-    st.success(f"Arquivo '{_arquivo_pdf.name}' carregado com sucesso!")
+    st.success(f"Ficheiro '{_arquivo_pdf.name}' carregado com sucesso!")
     
-    with st.spinner("Executando pipeline ETL..."):
+    with st.spinner("A executar pipeline ETL..."):
         try:
             # PREPARAÇÃO DO ARQUIVO
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
@@ -35,20 +36,27 @@ if _arquivo_pdf := arquivo_pdf:
 
             os.unlink(caminho_temporario)
 
-            # CONCATENAÇÃO E CARGA (EXPORTAÇÃO)
+            # EXIBIÇÃO 
             if tabelas_limpas:
-                df_final = pd.concat(tabelas_limpas, ignore_index=True)
+                dados_json_separados = {}            
+   
+                nomes_separadores = [f"Tabela {i+1}" for i in range(len(tabelas_limpas))]
+                separadores = st.tabs(nomes_separadores)
                 
-                st.markdown("### 📊 Tabela Extraída")
-                st.dataframe(df_final, use_container_width=True)
+                for i, df_tabela in enumerate(tabelas_limpas):
+                    with separadores[i]:
+                        st.markdown(f"### 📊 Tabela {i+1}")
+                        st.dataframe(df_tabela, use_container_width=True)                 
 
-                dados_json = df_final.to_json(orient="records", force_ascii=False, indent=4)
+                    dados_json_separados[f"tabela_{i+1}"] = df_tabela.to_dict(orient="records")
+
+                json_final = json.dumps(dados_json_separados, ensure_ascii=False, indent=4)
 
                 st.markdown("### 📥 Exportar Resultados")
                 st.download_button(
-                    label="Clique aqui para baixar a tabela em JSON",
-                    data=dados_json,
-                    file_name=f"{_arquivo_pdf.name.replace('.pdf', '')}_estruturado.json",
+                    label="Clique aqui para descarregar o JSON (Tabelas Separadas)",
+                    data=json_final,
+                    file_name=f"{_arquivo_pdf.name.replace('.pdf', '')}_tabelas_separadas.json",
                     mime="application/json",
                     type="primary"
                 )
