@@ -13,23 +13,23 @@ modelo = None
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     
-    # Pergunta à API quais modelos estão disponíveis para gerar conteúdo
+    # Pergunta à API quais modelos estão disponíveis
     modelos_disponiveis = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     
-    if modelos_disponiveis:
-        # Dá preferência aos modelos mais ágeis, mas aceita o que estiver disponível
-        modelo_escolhido = next((m for m in modelos_disponiveis if '1.5-flash' in m), 
-                           next((m for m in modelos_disponiveis if '1.5-pro' in m), 
-                           next((m for m in modelos_disponiveis if 'pro' in m), modelos_disponiveis[0])))
-        
+    # Filtra EXCLUSIVAMENTE para a família 'flash', que possui cota gratuita de alto volume
+    modelos_flash = [m for m in modelos_disponiveis if 'flash' in m.lower()]
+    
+    if modelos_flash:
+        # Pega o primeiro modelo Flash disponível na lista
+        modelo_escolhido = modelos_flash[0]
         modelo = genai.GenerativeModel(modelo_escolhido)
-        st.caption(f"🤖 IA conectada com sucesso ao modelo: `{modelo_escolhido}`")
+        st.caption(f"🤖 IA conectada com sucesso ao modelo leve: `{modelo_escolhido}`")
     else:
-        st.error("Nenhum modelo compatível foi encontrado para a sua chave de API.")
+        st.error("Nenhum modelo da família 'Flash' compatível foi encontrado. Verifique sua chave.")
 except Exception as e:
     st.error(f"Erro ao conectar com a API do Google: {e}")
 
-arquivo_pdf = st.file_uploader("Selecione o arquivo PDF", type=["pdf"])
+arquivo_pdf = st.file_uploader("Selecione o arquivo PDF governamental", type=["pdf"])
 
 if arquivo_pdf and modelo:
     st.success(f"Arquivo '{arquivo_pdf.name}' carregado com sucesso!")
