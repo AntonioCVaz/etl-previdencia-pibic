@@ -12,7 +12,7 @@ st.markdown("Faça o upload do relatório em PDF. A Inteligência Artificial ir�
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
     # O modelo 1.5 Flash é ideal e muito rápido para tarefas de extração
-    modelo = genai.GenerativeModel('gemini-1.5-flash')
+    modelo = genai.GenerativeModel('gemini-pro')
 except Exception as e:
     st.error("Aviso: Chave da API do Gemini não foi encontrada nas definições (Secrets) do Streamlit.")
 
