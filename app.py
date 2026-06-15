@@ -1,67 +1,79 @@
 import streamlit as st
-import pandas as pd
-import tabula
-import tempfile
-import os
+import PyPDF2
+import google.generativeai as genai
 import json
 
-st.set_page_config(page_title="Pipeline ETL Previdência", layout="wide")
+st.set_page_config(page_title="Pipeline ETL Previdência (IA)", layout="wide")
 
-st.title("🏛️ Extrator de Tabelas da Previdência Social")
-st.markdown("Faça o upload do relatório em PDF para extrair, estruturar e descarregar os dados em formato JSON.")
+st.title("🏛️ Extrator de Tabelas com Deep Learning")
+st.markdown("Faça o upload do relatório em PDF. A Inteligência Artificial irá extrair e estruturar os dados num formato JSON.")
+
+# Ligação ao modelo LLM usando o cofre seguro do Streamlit
+try:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    # O modelo 1.5 Flash é ideal e muito rápido para tarefas de extração
+    modelo = genai.GenerativeModel('gemini-1.5-flash')
+except Exception as e:
+    st.error("Aviso: Chave da API do Gemini não foi encontrada nas definições (Secrets) do Streamlit.")
 
 arquivo_pdf = st.file_uploader("Selecione o ficheiro PDF governamental", type=["pdf"])
 
-if _arquivo_pdf := arquivo_pdf:
-    st.success(f"Ficheiro '{_arquivo_pdf.name}' carregado com sucesso!")
+if arquivo_pdf:
+    st.success(f"Ficheiro '{arquivo_pdf.name}' carregado com sucesso!")
     
-    with st.spinner("Executando pipeline ETL..."):
+    with st.spinner("O LLM está a processar a matriz de dados. Por favor, aguarde..."):
         try:
-            # PREPARAÇÃO DO ARQUIVO
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                tmp.write(_arquivo_pdf.getvalue())
-                caminho_temporario = tmp.name
+            # --- 1. EXTRAÇÃO BRUTA ---
+            leitor_pdf = PyPDF2.PdfReader(arquivo_pdf)
+            texto_completo = ""
+            for pagina in leitor_pdf.pages:
+                texto_completo += pagina.extract_text() + "\n"
 
-            # EXTRAÇÃO
-            lista_tabelas = tabula.read_pdf(caminho_temporario, pages='all', stream=True)
-            tabelas_limpas = []
+            # --- 2. TRANSFORMAÇÃO VIA LLM ---
+            # Prompt de engenharia meticuloso para garantir apenas o retorno do JSON
+            prompt = f"""
+            Atue como um Engenheiro de Dados especialista em processamento de dados fiscais.
+            Analise o texto abaixo, extraído de um relatório governamental.
+            Identifique todas as tabelas de dados presentes e estruture-as.
+            
+            Regras rigorosas:
+            1. Devolva EXCLUSIVAMENTE um ficheiro JSON válido.
+            2. Não inclua texto explicativo antes nem depois.
+            3. Não inclua formatação markdown como ```json. Apenas as chaves e valores.
+            4. Estruture de forma que cada página ou secção identificada seja uma chave no dicionário JSON principal.
+            
+            Texto do PDF:
+            {texto_completo}
+            """
 
-            # TRANSFORMAÇÃO
-            for df_bruto in lista_tabelas:
-                df_limpo = df_bruto.dropna(how='all', axis=0).dropna(how='all', axis=1)
+            resposta_ia = modelo.generate_content(prompt)
+            
+            # Limpeza preventiva caso o LLM insira formatações de bloco de código
+            texto_limpo = resposta_ia.text.strip()
+            if texto_limpo.startswith("```json"):
+                texto_limpo = texto_limpo[7:]
+            if texto_limpo.endswith("```"):
+                texto_limpo = texto_limpo[:-3]
                 
-                if not df_limpo.empty:
-                    df_limpo.columns = [str(col).strip().replace('\r', ' ').replace('\n', ' ') for col in df_limpo.columns]
-                    tabelas_limpas.append(df_limpo)
+            dados_json = json.loads(texto_limpo.strip())
+            json_formatado = json.dumps(dados_json, ensure_ascii=False, indent=4)
 
-            os.unlink(caminho_temporario)
+            # --- 3. EXIBIÇÃO E EXPORTAÇÃO ---
+            st.markdown("### 📊 Dados Estruturados pela IA")
+            st.json(dados_json)
 
-            # EXIBIÇÃO 
-            if tabelas_limpas:
-                dados_json_separados = {}            
-   
-                nomes_separadores = [f"Tabela {i+1}" for i in range(len(tabelas_limpas))]
-                separadores = st.tabs(nomes_separadores)
-                
-                for i, df_tabela in enumerate(tabelas_limpas):
-                    with separadores[i]:
-                        st.markdown(f"### 📊 Tabela {i+1}")
-                        st.dataframe(df_tabela, use_container_width=True)                 
+            st.markdown("### 📥 Exportar Resultados")
+            st.download_button(
+                label="Clique aqui para descarregar o ficheiro JSON",
+                data=json_formatado,
+                file_name=f"{arquivo_pdf.name.replace('.pdf', '')}_ia_estruturado.json",
+                mime="application/json",
+                type="primary"
+            )
 
-                    dados_json_separados[f"tabela_{i+1}"] = df_tabela.to_dict(orient="records")
-
-                json_final = json.dumps(dados_json_separados, ensure_ascii=False, indent=4)
-
-                st.markdown("### 📥 Exportar Resultados")
-                st.download_button(
-                    label="Clique aqui para descarregar o JSON (Tabelas Separadas)",
-                    data=json_final,
-                    file_name=f"{_arquivo_pdf.name.replace('.pdf', '')}_tabelas_separadas.json",
-                    mime="application/json",
-                    type="primary"
-                )
-            else:
-                st.warning("Não foi possível extrair nenhuma tabela válida deste arquivo PDF.")
-
+        except json.JSONDecodeError:
+            st.error("O modelo não conseguiu formatar os dados perfeitamente. Por favor, tente submeter o ficheiro novamente.")
+            with st.expander("Ver a resposta em bruto (Raw) do modelo para depuração"):
+                st.write(resposta_ia.text)
         except Exception as e:
-            st.error(f"Erro ao processar o arquivo PDF: {e}")
+            st.error(f"Ocorreu um erro no processamento: {e}")
