@@ -51,14 +51,17 @@ if arquivos_pdf and modelo:
                     for pagina in leitor_pdf.pages:
                         texto_completo += pagina.extract_text() + "\n"
 
-                    # MUDANÇA 2: Prompt focado em extrair apenas a coluna do mês de referência
+                    # MUDANÇA 2: Prompt com engenharia de precisão para focar na tabela exata
                     prompt = f"""
-                    Atue como um Engenheiro de Dados. Analise o texto do relatório do RGPS abaixo.
-                    Encontre a tabela principal de "RESULTADO DO RGPS EM R$ MILHÕES NOMINAIS".
+                    Atue como um Engenheiro de Dados. Analise o texto do relatório governamental abaixo.
+                    
+                    ATENÇÃO MÁXIMA AO ALVO: 
+                    Encontre EXCLUSIVAMENTE a tabela "RESULTADO DO RGPS" que contém a visão "TOTAL" e os dados "Com Renúncias" (LEI Nº 14.360/22).
+                    Ignore qualquer outra tabela de resultado padrão que não inclua o bloco de renúncias previdenciárias.
                     
                     Sua tarefa:
-                    1. Identifique qual é o mês e ano de referência PRINCIPAL do relatório (ex: "dez/25", "nov/25"). Geralmente é a coluna de dados mais recente antes das colunas de variação (Var. %).
-                    2. Extraia os nomes dos itens (primeira coluna) e APENAS os valores correspondentes a este mês de referência.
+                    1. Identifique qual é o mês e ano de referência PRINCIPAL do relatório (ex: "dez/25", "nov/25"). Geralmente é a coluna de dados numéricos mais recente antes das colunas de variação percentual.
+                    2. Extraia os nomes dos itens (primeira coluna) e APENAS os valores correspondentes a este mês de referência. Dica: esta tabela possui itens específicos como "2. Renúncias Previdenciárias" e finaliza com "4. Resultado do RGPS com Renúncias".
                     3. Retorne um JSON com duas chaves: "mes_referencia" (string) e "dados" (dicionário de chave-valor numérico).
                     
                     Exemplo do formato exigido:
@@ -66,7 +69,8 @@ if arquivos_pdf and modelo:
                         "mes_referencia": "dez/25",
                         "dados": {{
                             "1. Arrecadação Líquida Total": 92045.3,
-                            "1.1 Arrecadação Líquida Urbana": 91080.7
+                            "2. Renúncias Previdenciárias": 6417.2,
+                            "4. Resultado do RGPS com Renúncias (1 + 2 - 3)": 17533.7
                         }}
                     }}
                     
