@@ -22,7 +22,10 @@ try:
     if modelos_flash:
         # Pega o primeiro modelo Flash disponível na lista
         modelo_escolhido = modelos_flash[0]
-        modelo = genai.GenerativeModel(modelo_escolhido)
+        modelo = genai.GenerativeModel(
+        modelo_escolhido,
+        generation_config={"response_mime_type": "application/json"}
+        )
         st.caption(f"🤖 IA conectada com sucesso ao modelo leve: `{modelo_escolhido}`")
     else:
         st.error("Nenhum modelo da família 'Flash' compatível foi encontrado. Verifique sua chave.")
