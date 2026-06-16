@@ -5,7 +5,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Pipeline ETL Previdência (Série Histórica)", layout="wide")
 
-st.title("🏛️ Construtor de Série Histórica do RGPS")
+st.title("Construtor de Série Histórica do RGPS")
 st.markdown("Faça o upload de **vários** relatórios em PDF. A IA irá analisar visualmente cada documento, extrair a tabela com renúncias e montar uma tabela consolidada no tempo, pareando as variáveis automaticamente.")
 
 # --- CONFIGURAÇÃO E DESCOBERTA DINÂMICA DE MODELOS ---
@@ -26,7 +26,7 @@ try:
             modelo_escolhido,
             generation_config={"response_mime_type": "application/json"}
         )
-        st.caption(f"🤖 IA conectada com sucesso ao modelo visual rápido: `{modelo_escolhido}`")
+        st.caption(f"IA conectada com sucesso ao modelo visual rápido: `{modelo_escolhido}`")
     else:
         st.error("Nenhum modelo da família 'Flash' compatível foi encontrado. Verifique sua chave.")
 except Exception as e:
@@ -36,9 +36,9 @@ except Exception as e:
 arquivos_pdf = st.file_uploader("Selecione os arquivos PDF (pode selecionar vários simultaneamente)", type=["pdf"], accept_multiple_files=True)
 
 if arquivos_pdf and modelo:
-    st.info(f"📁 {len(arquivos_pdf)} arquivo(s) na fila para processamento.")
+    st.info(f"{len(arquivos_pdf)} arquivo(s) na fila para processamento.")
     
-    if st.button("🚀 Processar e Consolidar Série Histórica", type="primary"):
+    if st.button("Processar e Consolidar Série Histórica", type="primary"):
         
         # Dicionário mestre que agrupará todos os meses
         dados_consolidados = {}
@@ -100,19 +100,19 @@ if arquivos_pdf and modelo:
 
         # --- ETAPA DE CONSOLIDAÇÃO DOS DADOS ---
         if dados_consolidados:
-            st.success("✨ Processamento concluído com sucesso!")
+            st.success("Processamento concluído com sucesso!")
             
             # O Pandas cruza todas as variáveis e as empilha no tempo
             df_historico = pd.DataFrame(dados_consolidados)
             
-            st.markdown("### 📊 Série Histórica Consolidada (Com Renúncias)")
+            st.markdown("###Série Histórica Consolidada (Com Renúncias)")
             st.markdown("As colunas representam os meses. Caso uma rubrica financeira não exista em determinado mês, o valor foi preenchido com `NaN` de forma automática.")
             st.dataframe(df_historico, use_container_width=True)
 
             csv = df_historico.to_csv()
             
             st.download_button(
-                label="📥 Baixar Série Histórica em CSV",
+                label="Baixar Série Histórica em CSV",
                 data=csv,
                 file_name="rgps_serie_historica_com_renuncias.csv",
                 mime="text/csv",
